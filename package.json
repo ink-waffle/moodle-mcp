@@ -1,0 +1,43 @@
+{
+  "name": "@ink-waffle/moodle-mcp",
+  "version": "0.2.0",
+  "description": "MCP server for any Moodle site: reads courses, deadlines, grades, forums and downloads files via the mobile web-service API, with browser-based SSO token minting",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "moodle",
+    "lms",
+    "webservice",
+    "playwright"
+  ],
+  "bin": {
+    "moodle-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js",
+    "prepack": "npm run build",
+    "serve": "node dist/index.js --port 8933"
+  },
+  "dependencies": {
+    "@ink-waffle/study-browser": "^0.1.0",
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "playwright-core": "^1.56.0",
+    "turndown": "^7.2.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/turndown": "^5.0.5",
+    "typescript": "^5.9.3"
+  }
+}
