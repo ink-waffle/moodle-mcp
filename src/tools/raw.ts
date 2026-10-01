@@ -1,25 +1,12 @@
 import type { MoodleClient } from "../ws.js";
 
-/**
- * v1 is read-only. An allowlist of read verbs is used rather than a denylist of
- * write verbs: a denylist both misses new mutating functions and trips over
- * innocent names (core_enrol_get_users_courses contains "enrol"). Note that
- * `mod_*_view_*` calls are writes — they mark activities complete, which can
- * move a grade — so they are excluded here on purpose.
- *
- * The allowlist is a strong heuristic, not a guarantee: a few core functions
- * write despite a `_get_` name. Verified on 4.5.13 —
- * `mod_assign_get_submission_status` inserts an `assign_submission` row with
- * status "new" for the calling user if none exists. That is benign (opening the
- * activity in a browser does the same, and status "new" is not a submission),
- * but it means "read-only" here describes intent, not an enforced property.
- */
+/* Raw access excludes view/write calls; some get calls still have Moodle-side effects. */
 const READ_VERBS = /_(get|search|is|can|check)_/;
 
 export function assertReadOnly(fn: string): void {
   if (!READ_VERBS.test(fn)) {
     throw new Error(
-      `Refusing to call ${fn}: read-only v1 only allows functions whose name contains _get_, _search_, _is_, _can_ or _check_. Changing things is out of scope for this server — do it in a browser.`,
+      `Refusing to call ${fn}: moodle_call only allows names containing _get_, _search_, _is_, _can_ or _check_. Use the dedicated submission tools for writes.`,
     );
   }
 }

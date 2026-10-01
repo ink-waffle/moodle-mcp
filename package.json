@@ -1,7 +1,7 @@
 {
   "name": "@ink-waffle/moodle-mcp",
   "version": "0.2.0",
-  "description": "MCP server for any Moodle site: reads courses, deadlines, grades, forums and downloads files via the mobile web-service API, with browser-based SSO token minting",
+  "description": "Moodle MCP server for reading courses and submitting assignments, quizzes, and other activities through the web-service API",
   "type": "module",
   "license": "MIT",
   "keywords": [

@@ -1,6 +1,5 @@
 node_modules/
 dist/
-.rules/
 .memory/
 .memory
 *.log

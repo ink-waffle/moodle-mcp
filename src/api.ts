@@ -75,6 +75,10 @@ export interface Assignment {
   grade: number;
   maxattempts: number;
   teamsubmission?: number;
+  nosubmissions?: number;
+  submissiondrafts?: number;
+  requiresubmissionstatement?: number;
+  submissionstatement?: string;
   introattachments?: ModuleContent[];
   introfiles?: ModuleContent[];
   configs?: { plugin: string; subtype: string; name: string; value: string }[];
@@ -82,8 +86,8 @@ export interface Assignment {
 
 export interface SubmissionStatus {
   lastattempt?: {
-    submission?: { status: string; attemptnumber: number; timemodified: number; gradingstatus?: string };
-    teamsubmission?: { status: string; timemodified: number };
+    submission?: { status: string; attemptnumber: number; timemodified: number; timestarted?: number | null; gradingstatus?: string };
+    teamsubmission?: { status: string; timemodified: number; timestarted?: number | null };
     submissionsenabled: boolean;
     canedit: boolean;
     cansubmit: boolean;
@@ -98,6 +102,7 @@ export interface SubmissionStatus {
     gradeddate?: number;
   };
   assignmentdata?: { attachments?: { intro?: ModuleContent[] } };
+  warnings?: { warningcode?: string; message?: string; item?: number }[];
 }
 
 export interface GradeItem {

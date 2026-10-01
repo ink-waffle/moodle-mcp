@@ -1,6 +1,6 @@
 # @ink-waffle/moodle-mcp
 
-Use Moodle from an MCP client: courses, activities, deadlines, grades, forums, messages, notifications, search, and downloads. It is read-only.
+Use Moodle from an MCP client: read courses, activities, deadlines, grades and materials; submit assignments, quizzes and other supported activities through Moodle's web-service API.
 
 ## Install
 
@@ -25,7 +25,15 @@ Ask your agent to run `moodle_connect` with your Moodle site. On SSO sites, log 
 | `moodle_search` | search cached course content |
 | `moodle_forum`, `moodle_messages` | read discussions and messages |
 | `moodle_download` | download files |
-| `moodle_call`, `moodle_functions` | access available read-only API functions |
+| `moodle_upload_draft` | upload files to a Moodle draft item for a supported activity |
+| `moodle_assignment_start`, `moodle_assignment_submit`, `moodle_assignment_finalize` | start a timed assignment, save files/text, finalize a draft |
+| `moodle_quiz_start`, `moodle_quiz_page`, `moodle_quiz_save`, `moodle_quiz_process` | start/resume, read question HTML, save answers, finish an attempt |
+| `moodle_choice_submit`, `moodle_workshop_submit`, `moodle_workshop_assess`, `moodle_forum_post` | submit choices, workshop work/reviews, and forum posts |
+| `moodle_feedback_*`, `moodle_lesson_*` | navigate and answer multi-page activities |
+| `moodle_glossary_add`, `moodle_database_add`, `moodle_wiki_add_page`, `moodle_survey_submit` | create other supported activity submissions |
+| `moodle_call`, `moodle_functions` | access available **read-only** API functions and list site capabilities |
+
+Writes use the site's web-service token, not the browser; file uploads require the site's mobile web service to permit uploads. `moodle_call` remains read-only. Inspect `moodle_activity` before a write: saving without a draft stage can immediately submit, and starting/finishing a quiz or lesson may consume a graded attempt. A submission statement is the declaration a student must accept when submitting work; no-draft assignments requiring one must be completed in Moodle's UI because the save API cannot record acceptance. `moodle_activity` reports known browser-dependent activity types and quiz question types; `moodle_quiz_page` also warns that HTML may omit the usable visual/interactive context. **These checks cannot rule out embedded media, custom scripts, or external content.** When an activity cannot be understood through the API, use another browser tool if appropriate or ask the student; this MCP does not automate browser exercise runtimes.
 
 ## Shared browser
 

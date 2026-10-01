@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { basename, isAbsolute } from "node:path";
 import type { Site } from "./config.js";
 
 export class MoodleError extends Error {
@@ -138,6 +140,45 @@ export class MoodleClient {
       if (err.exception) throw new MoodleError(err.errorcode ?? "exception", err.message ?? "unknown error", fn);
     }
     return data as T;
+  }
+
+  async upload(paths: string[]): Promise<number> {
+    if (!paths.length) throw new Error("Provide at least one file to upload.");
+    if (paths.some((path) => !isAbsolute(path))) throw new Error("Upload paths must be absolute.");
+    if (new Set(paths.map((path) => basename(path))).size !== paths.length) {
+      throw new Error("Files in one draft area must have distinct basenames.");
+    }
+    let itemid = 0;
+    for (const path of paths) {
+      const body = new FormData();
+      body.set("token", this.site.token);
+      body.set("itemid", String(itemid));
+      body.set("filepath", "/");
+      body.set("file", new Blob([await readFile(path)]), basename(path));
+      const res = await fetch(`${this.site.url}/webservice/upload.php`, {
+        method: "POST",
+        headers: { "User-Agent": USER_AGENT },
+        body,
+      });
+      if (!res.ok) throw new Error(`Moodle draft upload failed: HTTP ${res.status}`);
+      const text = await res.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`Moodle draft upload returned non-JSON: ${text.slice(0, 200)}`);
+      }
+      if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== "object") {
+        const err = data as MoodleExceptionBody;
+        throw new MoodleError(err?.errorcode ?? "upload_error", err?.message ?? "Invalid draft upload response", "webservice/upload.php");
+      }
+      const file = data[0] as { itemid?: number; error?: string; errortype?: string };
+      if (file.error || !Number.isSafeInteger(file.itemid) || (file.itemid ?? 0) <= 0 || (itemid && file.itemid !== itemid)) {
+        throw new MoodleError(file.errortype ?? "upload_error", file.error ?? "Invalid draft item id", "webservice/upload.php");
+      }
+      itemid = file.itemid!;
+    }
+    return itemid;
   }
 
   /** Sign a pluginfile.php / webservice URL so it can be downloaded with the web-service token. */

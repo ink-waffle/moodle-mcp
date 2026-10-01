@@ -53,6 +53,12 @@ interface WithCm {
   [k: string]: unknown;
 }
 
+const CORE_QUIZ_QTYPES = new Set([
+  "calculated", "calculatedmulti", "calculatedsimple", "ddimageortext", "ddmarker", "ddwtos",
+  "description", "essay", "gapselect", "match", "multianswer", "multichoice", "numerical",
+  "ordering", "random", "randomsamatch", "shortanswer", "truefalse",
+]);
+
 const DATE_KEYS = [
   "timeopen",
   "timeclose",
@@ -111,6 +117,8 @@ async function assignDetail(client: MoodleClient, cm: { course: number; instance
         ["max grade", a.grade],
         ["attempts allowed", a.maxattempts === -1 ? "unlimited" : a.maxattempts],
         ["group submission", a.teamsubmission ? "yes" : "no"],
+        ["draft before final submit", a.submissiondrafts ? "yes" : "no"],
+        ["submission statement required", a.requiresubmissionstatement ? "yes" : "no"],
       ],
     ),
   );
@@ -119,6 +127,17 @@ async function assignDetail(client: MoodleClient, cm: { course: number; instance
   const maxFiles = a.configs?.find((c) => c.plugin === "file" && c.name === "maxfilesubmissions")?.value;
   if (fileTypes || maxFiles) {
     out.push("", `Submission: ${maxFiles ? `up to ${maxFiles} file(s)` : ""}${fileTypes ? ` restricted to ${fileTypes}` : ""}`);
+  }
+  const enabled = a.configs?.filter((c) => c.subtype === "assignsubmission" && c.name === "enabled" && c.value === "1")
+    .map((c) => c.plugin) ?? [];
+  if (enabled.length) out.push(`Submission plugins: ${enabled.join(", ")}`);
+  const unsupported = enabled.filter((plugin) => !["file", "onlinetext", "comments"].includes(plugin));
+  if (unsupported.length) {
+    out.push(`**Plugin limitation:** ${unsupported.join(", ")} ${unsupported.length === 1 ? "is" : "are"} outside this server's assignment-submit tool. Inspect the activity in Moodle before submitting; other required fields may need its UI.`);
+  }
+  if (a.submissionstatement) out.push("", "### Submission statement", html2md(a.submissionstatement, 2000));
+  if (a.requiresubmissionstatement && !a.submissiondrafts) {
+    out.push("", "**Moodle UI required:** This assignment requires accepting a submission statement, but the no-draft save API cannot record acceptance. Use the activity link in a browser; ask the student to submit or use a separate browser tool only if appropriate.");
   }
 
   const intro = html2md(a.intro, 8000);
@@ -137,8 +156,8 @@ async function assignDetail(client: MoodleClient, cm: { course: number; instance
     const rows: (string | number)[][] = [
       ["submission status", la?.submission?.status ?? la?.teamsubmission?.status ?? "none"],
       ["grading status", la?.gradingstatus ?? "—"],
-      ["can still submit", la?.cansubmit ? "yes" : "no"],
-      ["can edit", la?.canedit ? "yes" : "no"],
+      ["can finalize draft", la?.cansubmit ? "yes" : "no"],
+      ["can save or edit", la?.submissionsenabled && la.canedit ? "yes" : "no"],
     ];
     if (la?.submission?.timemodified) rows.push(["last change", fmtDate(la.submission.timemodified)]);
     if (la?.extensionduedate) rows.push(["extension until", fmtDate(la.extensionduedate)]);
@@ -162,6 +181,24 @@ async function quizDetail(
   const intro = html2md(q.intro as string, 4000);
   if (intro) out.push("", "### Description", intro);
 
+  out.push("", "**Quiz interaction limit:** The API returns rendered HTML, not a complete visual or interactive view. Even standard question types can include images, media or site-specific scripts. Inspect the actual page before answering; use a separate browser tool or ask the student when its content cannot be understood from the API. Question-type checks cannot rule this out.");
+  try {
+    const types = await client.call<{ questiontypes: string[]; warnings?: { message?: string }[] }>(
+      "mod_quiz_get_quiz_required_qtypes", { quizid: q.id },
+    );
+    if (types.warnings?.length) {
+      out.push(`Question types could not be determined: ${types.warnings.map((w) => w.message ?? "Moodle warning").join("; ")}`);
+    } else {
+      out.push(`Question types reported by Moodle: ${types.questiontypes.join(", ") || "none"}.`);
+      const unfamiliar = types.questiontypes.filter((type) => !CORE_QUIZ_QTYPES.has(type));
+      if (unfamiliar.length) {
+        out.push(`**Browser likely needed:** ${unfamiliar.join(", ")} ${unfamiliar.length === 1 ? "is" : "are"} not among Moodle 4.5's bundled question types. Do not assume raw API fields are enough to interact with these questions.`);
+      }
+    }
+  } catch {
+    out.push("Question types unavailable; browser-dependent questions cannot be ruled out.");
+  }
+
   try {
     const access = await client.call<{ preventaccessreasons: string[]; canattempt: boolean; activerulenames: string[] }>(
       "mod_quiz_get_quiz_access_information",
@@ -184,8 +221,8 @@ async function quizDetail(
         "",
         "### Your attempts",
         table(
-          ["#", "state", "started", "finished", "sumgrades"],
-          att.attempts.map((a) => [a.attempt, a.state, fmtDate(a.timestart), fmtDate(a.timefinish), a.sumgrades ?? ""]),
+          ["id", "#", "state", "started", "finished", "sumgrades"],
+          att.attempts.map((a) => [a.id, a.attempt, a.state, fmtDate(a.timestart), fmtDate(a.timefinish), a.sumgrades ?? ""]),
         ),
       );
     } else {
@@ -317,8 +354,9 @@ async function choiceDetail(client: MoodleClient, cm: { course: number; id: numb
       "",
       "### Options",
       table(
-        ["option", "taken", "capacity", "yours", "closed"],
+        ["id", "option", "taken", "capacity", "yours", "closed"],
         res.options.map((o) => [
+          o.id,
           decodeEntities(o.text),
           o.countanswers,
           o.maxanswers || "∞",
@@ -403,8 +441,8 @@ async function workshopDetail(client: MoodleClient, cm: { course: number; id: nu
         "",
         `### Reviews you wrote (${written.length})`,
         table(
-          ["submission", "grade you gave", "grading grade", "when"],
-          written.map((a) => [a.submissionid, a.grade ?? "—", a.gradinggrade ?? "—", fmtDate(a.timecreated)]),
+          ["assessment id", "submission", "grade you gave", "grading grade", "when"],
+          written.map((a) => [a.id, a.submissionid, a.grade ?? "—", a.gradinggrade ?? "—", fmtDate(a.timecreated)]),
         ),
       );
     }
@@ -495,7 +533,19 @@ export async function activityDetail(
     case "workshop":
       body.push(...(await workshopDetail(client, cm)));
       break;
+    case "lti":
+      body.push("**External runtime:** This activity launches a separate provider. Moodle's API cannot read or complete its exercise. Inspect the activity link in a browser; use a separate browser tool only if appropriate, or ask the student.");
+      body.push(...(await genericDetail(client, cm.modname, cm)));
+      break;
+    case "scorm":
+    case "h5pactivity":
+      body.push(`**Package runtime:** ${cm.modname} exercises run inside a browser-based package. Moodle's API can expose metadata and results, but cannot perform its interactions. Inspect the activity link with a separate browser tool if appropriate, or ask the student.`);
+      body.push(...(await genericDetail(client, cm.modname, cm)));
+      break;
     default:
+      if (!PLURALS[cm.modname]) {
+        body.push("**Unknown activity type:** This server cannot determine its interaction requirements or complete it through a dedicated tool. Inspect its instructions and activity link; an external browser or student action may be needed.");
+      }
       body.push(...(await genericDetail(client, cm.modname, cm)));
   }
 
