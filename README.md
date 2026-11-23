@@ -65,4 +65,4 @@ The MCP only attaches to an explicit CDP endpoint; it never starts or closes tha
 
 ## Local data
 
-Tokens and cached data live in `~/.moodle-mcp/`. Treat `config.json` as a password file. Downloads go to `~/.moodle-mcp/files/` unless you pass `dest`.
+Tokens and cached data live in `~/.moodle-mcp/`. Treat `config.json` as a password file. Downloads go to `~/.moodle-mcp/files/` (or `MOODLE_MCP_DOWNLOADS`); a `dest` you pass must be a folder inside it. The token is only ever sent to the connected site's own origin, so `moodle_download` refuses URLs on other hosts.

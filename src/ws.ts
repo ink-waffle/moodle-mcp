@@ -143,6 +143,10 @@ export class MoodleClient {
   /** Sign a pluginfile.php / webservice URL so it can be downloaded with the web-service token. */
   fileUrl(rawUrl: string): string {
     const u = new URL(rawUrl);
+    // The token is a password for this site: never attach it to a URL on another origin.
+    if (u.origin !== new URL(this.site.url).origin) {
+      throw new Error(`Blocked: ${u.origin} is not the Moodle site, token not sent.`);
+    }
     u.searchParams.set("token", this.site.token);
     return u.toString();
   }

@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { cached, getAssignments, getCourseModuleInfo, type ModuleContent } from "../api.js";
-import { DOWNLOAD_DIR } from "../config.js";
+import { confineToDownloads, DOWNLOAD_DIR } from "../config.js";
 import { fmtSize, table } from "../format.js";
 import type { MoodleClient } from "../ws.js";
 import { courseSections, resolveCourse } from "./courses.js";
@@ -74,6 +74,7 @@ export interface DownloadOpts {
 
 export async function download(client: MoodleClient, opts: DownloadOpts): Promise<string> {
   const max = opts.max ?? 40;
+  const dest = opts.dest === undefined ? undefined : confineToDownloads(opts.dest);
   let targets: Target[];
 
   if (opts.url) {
@@ -111,7 +112,7 @@ export async function download(client: MoodleClient, opts: DownloadOpts): Promis
   let bytes = 0;
 
   for (const t of capped) {
-    const dir = opts.dest ?? join(DOWNLOAD_DIR, client.site.key, String(t.courseid ?? "misc"));
+    const dir = dest ?? join(DOWNLOAD_DIR, client.site.key, String(t.courseid ?? "misc"));
     await mkdir(dir, { recursive: true });
     try {
       const dl = await client.download(t.file.fileurl);

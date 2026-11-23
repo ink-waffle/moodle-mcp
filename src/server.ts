@@ -294,9 +294,9 @@ export function createServer(): McpServer {
       inputSchema: {
         cmid: z.number().optional().describe("All files of this activity, including assignment task attachments."),
         course: COURSE_REF.optional().describe("Every file in the course."),
-        url: z.string().optional().describe("A single Moodle file URL (it is signed with the token automatically)."),
+        url: z.string().optional().describe("A single file URL on the connected Moodle site (signed with the token automatically; other hosts are refused)."),
         filter: z.string().optional().describe("Only files whose name or location contains this text."),
-        dest: z.string().optional().describe("Target directory. Default ~/.moodle-mcp/files/<site>/<courseid>/."),
+        dest: z.string().optional().describe("Folder inside the downloads root (~/.moodle-mcp/files, or MOODLE_MCP_DOWNLOADS); paths outside it are refused. Default <site>/<courseid>/ inside the root."),
         max: z.number().optional().describe("Safety cap on file count. Default 40."),
         ...SITE,
       },

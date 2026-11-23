@@ -1,11 +1,25 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { mkdir, readFile, writeFile, chmod } from "node:fs/promises";
 import type { BrowserOptions } from "@ink-waffle/study-browser";
 
 export const HOME_DIR = process.env.MOODLE_MCP_HOME || join(homedir(), ".moodle-mcp");
 export const CACHE_DIR = join(HOME_DIR, "cache");
 export const DOWNLOAD_DIR = process.env.MOODLE_MCP_DOWNLOADS || join(HOME_DIR, "files");
+
+/**
+ * Resolve a caller-supplied download folder, refusing anything outside the downloads root.
+ * shortcut: symlinks or junctions already inside the root are followed; use realpath if untrusted links can appear there.
+ */
+export function confineToDownloads(dest: string, root = DOWNLOAD_DIR): string {
+  const base = resolve(root);
+  const dir = resolve(base, dest);
+  const rel = relative(base, dir);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new Error(`dest must be inside ${base} (set MOODLE_MCP_DOWNLOADS to change that folder).`);
+  }
+  return dir;
+}
 
 function positiveInteger(value: string | undefined): number | undefined {
   if (!value) return undefined;
